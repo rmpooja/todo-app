@@ -1,154 +1,177 @@
-const input = document.getElementById("taskInput");
-const button = document.getElementById("addTaskBtn");
-const list = document.getElementById("taskList");
-const taskCount = document.getElementById("taskCount");
-const filterButtons = document.querySelectorAll(".filter");
+const taskInput = document.getElementById("taskInput");
+const addTaskBtn = document.getElementById("addTaskBtn");
+const taskList = document.getElementById("taskList");
 
-let tasks = JSON.parse(localStorage.getItem("tasks")) || [];
+const allBtn = document.getElementById("allBtn");
+const activeBtn = document.getElementById("activeBtn");
+const completedBtn = document.getElementById("completedBtn");
 
 let currentFilter = "all";
 
-function saveTasks() {
-  localStorage.setItem("tasks", JSON.stringify(tasks));
-}
 
-function updateTaskCount() {
-  const activeTasks = tasks.filter(function (task) {
-    return !task.completed;
-  });
+// Get tasks from server
+async function loadTasks() {
+    const response = await fetch("/api/tasks");
+    const tasks = await response.json();
 
-  taskCount.textContent =
-    activeTasks.length +
-    (activeTasks.length === 1 ? " task left" : " tasks left");
-}
+    taskList.innerHTML = "";
 
-function displayTasks() {
-  list.innerHTML = "";
+    let filteredTasks = tasks;
 
-  tasks.forEach(function (taskData, index) {
-
-    if (
-      currentFilter === "active" &&
-      taskData.completed
-    ) {
-      return;
+    if (currentFilter === "active") {
+        filteredTasks = tasks.filter(task => !task.completed);
     }
 
-    if (
-      currentFilter === "completed" &&
-      !taskData.completed
-    ) {
-      return;
+    if (currentFilter === "completed") {
+        filteredTasks = tasks.filter(task => task.completed);
     }
 
-    const item = document.createElement("li");
+    filteredTasks.forEach(task => {
+        displayTask(task);
+    });
+}
 
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.checked = taskData.completed;
 
-    const taskText = document.createElement("span");
-    taskText.textContent = taskData.text;
+// Display task
+function displayTask(task) {
+    const li = document.createElement("li");
 
-    if (taskData.completed) {
-      taskText.style.textDecoration = "line-through";
-      taskText.style.color = "#888";
+    li.innerHTML = `
+        <input type="checkbox" ${task.completed ? "checked" : ""}>
+        <span>${task.text}</span>
+        <button class="edit-btn">Edit</button>
+        <button class="delete-btn">Delete</button>
+    `;
+
+    const checkbox = li.querySelector("input");
+
+    const editButton = li.querySelector(".edit-btn");
+
+    const deleteButton = li.querySelector(".delete-btn");
+
+
+    // Complete / Uncomplete task
+    checkbox.addEventListener("change", async () => {
+
+        await fetch(`/api/tasks/${task.id}`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                completed: checkbox.checked
+            })
+        });
+
+        loadTasks();
+    });
+
+
+    // Edit task
+    editButton.addEventListener("click", async () => {
+
+        const newText = prompt("Edit your task:", task.text);
+
+        if (newText === null || newText.trim() === "") {
+            return;
+        }
+
+        await fetch(`/api/tasks/${task.id}`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                text: newText.trim()
+            })
+        });
+
+        loadTasks();
+    });
+
+
+    // Delete task
+    deleteButton.addEventListener("click", async () => {
+
+        await fetch(`/api/tasks/${task.id}`, {
+            method: "DELETE"
+        });
+
+        loadTasks();
+    });
+
+
+    taskList.appendChild(li);
+}
+
+
+// Add task function
+async function addTask() {
+
+    const text = taskInput.value.trim();
+
+    if (text === "") {
+        return;
     }
 
-    const editButton = document.createElement("button");
-    editButton.textContent = "Edit";
-
-    const deleteButton = document.createElement("button");
-    deleteButton.textContent = "Delete";
-
-    checkbox.addEventListener("change", function () {
-
-      taskData.completed = checkbox.checked;
-
-      saveTasks();
-      displayTasks();
+    const response = await fetch("/api/tasks", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            text: text
+        })
     });
 
-    editButton.addEventListener("click", function () {
-
-      const newText = prompt(
-        "Edit your task:",
-        taskData.text
-      );
-
-      if (newText !== null && newText.trim() !== "") {
-
-        taskData.text = newText.trim();
-
-        saveTasks();
-        displayTasks();
-      }
-    });
-
-    deleteButton.addEventListener("click", function () {
-
-      tasks.splice(index, 1);
-
-      saveTasks();
-      displayTasks();
-    });
-
-    item.appendChild(checkbox);
-    item.appendChild(taskText);
-    item.appendChild(editButton);
-    item.appendChild(deleteButton);
-
-    list.appendChild(item);
-  });
-
-  updateTaskCount();
+    if (response.ok) {
+        taskInput.value = "";
+        loadTasks();
+    }
 }
 
-function addTask() {
 
-  const text = input.value.trim();
+// Click Add button
+addTaskBtn.addEventListener("click", addTask);
 
-  if (text === "") {
-    alert("Please enter a task!");
-    return;
-  }
 
-  const taskData = {
-    text: text,
-    completed: false
-  };
+// Press Enter to add task
+taskInput.addEventListener("keydown", (event) => {
 
-  tasks.push(taskData);
+    if (event.key === "Enter") {
+        addTask();
+    }
 
-  saveTasks();
-  displayTasks();
-
-  input.value = "";
-}
-
-button.addEventListener("click", addTask);
-
-input.addEventListener("keydown", function (event) {
-
-  if (event.key === "Enter") {
-    addTask();
-  }
 });
 
-filterButtons.forEach(function (button) {
 
-  button.addEventListener("click", function () {
+// All button
+allBtn.addEventListener("click", () => {
 
-    filterButtons.forEach(function (btn) {
-      btn.classList.remove("active");
-    });
+    currentFilter = "all";
 
-    button.classList.add("active");
+    loadTasks();
 
-    currentFilter = button.dataset.filter;
-
-    displayTasks();
-  });
 });
 
-displayTasks();
+
+// Active button
+activeBtn.addEventListener("click", () => {
+
+    currentFilter = "active";
+
+    loadTasks();
+
+});
+
+
+// Completed button
+completedBtn.addEventListener("click", () => {
+
+    currentFilter = "completed";
+
+    loadTasks();
+
+});
+// Load tasks when page opens
+loadTasks();
