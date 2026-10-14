@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/rmpooja/todo-app#readme",
   "dependencies": {
+    "@neondatabase/serverless": "^1.2.0",
     "better-sqlite3": "^13.0.3",
     "express": "^5.2.1"
   }
