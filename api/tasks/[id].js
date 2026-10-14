@@ -4,7 +4,9 @@ const { neon } = require("@neondatabase/serverless");
 module.exports = async function (req, res) {
   try {
     const sql = neon(process.env.DATABASE_URL);
-    const id = Number(req.query.id);
+   const id = Number(
+  req.query.id || req.url.split("/").filter(Boolean).pop()
+);
 
     if (!Number.isInteger(id) || id <= 0) {
       return res.status(400).json({ error: "Invalid task ID" });
