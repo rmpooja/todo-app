@@ -4,57 +4,40 @@ const { neon } = require("@neondatabase/serverless");
 module.exports = async function (req, res) {
   try {
     const sql = neon(process.env.DATABASE_URL);
-    const id = req.query.id;
+    const id = Number(req.query.id);
+
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.status(400).json({ error: "Invalid task ID" });
+    }
 
     if (req.method === "PUT") {
-      const updates = [];
+      const { completed, text } = req.body || {};
 
-      if (typeof req.body?.completed === "boolean") {
-        updates.push(req.body.completed);
-        updates.push("completed");
-      }
+      let result;
 
-      if (typeof req.body?.text === "string") {
-        const text = req.body.text.trim();
-
-        if (!text) {
-          return res.status(400).json({
-            error: "Task text cannot be empty"
-          });
-        }
-
-        const result = await sql`
-          UPDATE tasks
-          SET text = ${text}
-          WHERE id = ${id}
-          RETURNING id, text, completed
-        `;
-
-        if (!result.length) {
-          return res.status(404).json({ error: "Task not found" });
-        }
-
-        return res.status(200).json(result[0]);
-      }
-
-      if (updates.includes("completed")) {
-        const completed = updates[0];
-
-        const result = await sql`
+      if (typeof completed === "boolean") {
+        result = await sql`
           UPDATE tasks
           SET completed = ${completed}
           WHERE id = ${id}
           RETURNING id, text, completed
         `;
-
-        if (!result.length) {
-          return res.status(404).json({ error: "Task not found" });
-        }
-
-        return res.status(200).json(result[0]);
+      } else if (typeof text === "string" && text.trim()) {
+        result = await sql`
+          UPDATE tasks
+          SET text = ${text.trim()}
+          WHERE id = ${id}
+          RETURNING id, text, completed
+        `;
+      } else {
+        return res.status(400).json({ error: "Invalid task update" });
       }
 
-      return res.status(400).json({ error: "No updates provided" });
+      if (!result.length) {
+        return res.status(404).json({ error: "Task not found" });
+      }
+
+      return res.status(200).json(result[0]);
     }
 
     if (req.method === "DELETE") {
