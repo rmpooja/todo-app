@@ -4,31 +4,57 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My To-Do List</title>
+
     <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
 
-    <div class="todo-app">
+    <main class="app-container">
 
-        <h1>My To-Do List</h1>
+        <section class="todo-card">
 
-        <div class="task-input">
-            <input type="text" id="taskInput" placeholder="Enter a task">
-            <button id="addTaskBtn">Add</button>
-        </div>
+            <div class="header">
+                <p class="tag">MY PRODUCTIVITY</p>
+                <h1>My To-Do List</h1>
+                <p class="subtitle">Organize your tasks and get things done.</p>
+            </div>
 
-        <div class="filters">
-            <button id="allBtn">All</button>
-            <button id="activeBtn">Active</button>
-            <button id="completedBtn">Completed</button>
-        </div>
+            <div class="task-input">
+                <input
+                    type="text"
+                    id="taskInput"
+                    placeholder="What needs to be done?"
+                    autocomplete="off"
+                >
 
-        <ul id="taskList"></ul>
+                <button id="addTaskBtn">Add Task</button>
+            </div>
 
-    </div>
+            <div class="filters">
+                <button id="allBtn" class="filter-btn active">All</button>
+                <button id="activeBtn" class="filter-btn">Active</button>
+                <button id="completedBtn" class="filter-btn">Completed</button>
+            </div>
+
+            <ul id="taskList"></ul>
+
+            <div class="empty-message" id="emptyMessage">
+                <span>✓</span>
+                <p>No tasks here yet.</p>
+            </div>
+
+            <div class="footer">
+                <span id="taskCount">0 tasks</span>
+                <span>Stay productive ✨</span>
+            </div>
+
+        </section>
+
+    </main>
 
     <script src="script.js"></script>
 
 </body>
 </html>
+
