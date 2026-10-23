@@ -1,177 +1,179 @@
+
 const taskInput = document.getElementById("taskInput");
 const addTaskBtn = document.getElementById("addTaskBtn");
 const taskList = document.getElementById("taskList");
 
-const allBtn = document.getElementById("allBtn");
-const activeBtn = document.getElementById("activeBtn");
-const completedBtn = document.getElementById("completedBtn");
-
+let tasks = [];
 let currentFilter = "all";
 
-
-// Get tasks from server
+// Load tasks from the server
 async function loadTasks() {
+  try {
     const response = await fetch("/api/tasks");
-    const tasks = await response.json();
 
-    taskList.innerHTML = "";
-
-    let filteredTasks = tasks;
-
-    if (currentFilter === "active") {
-        filteredTasks = tasks.filter(task => !task.completed);
+    if (!response.ok) {
+      throw new Error("Could not load tasks");
     }
 
-    if (currentFilter === "completed") {
-        filteredTasks = tasks.filter(task => task.completed);
-    }
-
-    filteredTasks.forEach(task => {
-        displayTask(task);
-    });
+    tasks = await response.json();
+    renderTasks();
+  } catch (error) {
+    console.error("Load error:", error);
+  }
 }
 
+// Display tasks
+function renderTasks() {
+  taskList.innerHTML = "";
 
-// Display task
-function displayTask(task) {
+  const filteredTasks = tasks.filter((task) => {
+    if (currentFilter === "active") return !task.completed;
+    if (currentFilter === "completed") return task.completed;
+    return true;
+  });
+
+  filteredTasks.forEach((task) => {
     const li = document.createElement("li");
 
-    li.innerHTML = `
-        <input type="checkbox" ${task.completed ? "checked" : ""}>
-        <span>${task.text}</span>
-        <button class="edit-btn">Edit</button>
-        <button class="delete-btn">Delete</button>
-    `;
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.checked = task.completed;
 
-    const checkbox = li.querySelector("input");
-
-    const editButton = li.querySelector(".edit-btn");
-
-    const deleteButton = li.querySelector(".delete-btn");
-
-
-    // Complete / Uncomplete task
     checkbox.addEventListener("change", async () => {
-
-        await fetch(`/api/tasks/${task.id}`, {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                completed: checkbox.checked
-            })
-        });
-
-        loadTasks();
+      await updateTask(task.id, {
+        completed: checkbox.checked
+      });
     });
 
+    const text = document.createElement("span");
+    text.textContent = task.text;
 
-    // Edit task
-    editButton.addEventListener("click", async () => {
+    if (task.completed) {
+      text.style.textDecoration = "line-through";
+    }
 
-        const newText = prompt("Edit your task:", task.text);
+    const editBtn = document.createElement("button");
+    editBtn.textContent = "Edit";
 
-        if (newText === null || newText.trim() === "") {
-            return;
-        }
+    editBtn.addEventListener("click", async () => {
+      const newText = prompt("Edit task:", task.text);
 
-        await fetch(`/api/tasks/${task.id}`, {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                text: newText.trim()
-            })
-        });
+      if (newText === null || !newText.trim()) return;
 
-        loadTasks();
+      await updateTask(task.id, {
+        text: newText.trim()
+      });
     });
 
+    const deleteBtn = document.createElement("button");
+    deleteBtn.textContent = "Delete";
 
-    // Delete task
-    deleteButton.addEventListener("click", async () => {
-
-        await fetch(`/api/tasks/${task.id}`, {
-            method: "DELETE"
-        });
-
-        loadTasks();
+    deleteBtn.addEventListener("click", async () => {
+      if (!confirm("Delete this task?")) return;
+      await deleteTask(task.id);
     });
 
-
+    li.append(checkbox, text, editBtn, deleteBtn);
     taskList.appendChild(li);
+  });
 }
 
-
-// Add task function
+// Add a task
 async function addTask() {
+  const text = taskInput.value.trim();
+  if (!text) return;
 
-    const text = taskInput.value.trim();
+  addTaskBtn.disabled = true;
 
-    if (text === "") {
-        return;
-    }
-
+  try {
     const response = await fetch("/api/tasks", {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-            text: text
-        })
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text })
     });
 
-    if (response.ok) {
-        taskInput.value = "";
-        loadTasks();
+    if (!response.ok) {
+      throw new Error("Could not add task");
     }
+
+    taskInput.value = "";
+    await loadTasks();
+  } catch (error) {
+    console.error("Add error:", error);
+    alert("Could not add task. Please try again.");
+  } finally {
+    addTaskBtn.disabled = false;
+  }
 }
 
+// Update completion status or task text
+async function updateTask(id, changes) {
+  try {
+    const response = await fetch(`/api/tasks/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(changes)
+    });
 
-// Click Add button
+    if (!response.ok) {
+      throw new Error(`Update failed: HTTP ${response.status}`);
+    }
+
+    const updatedTask = await response.json();
+
+    tasks = tasks.map((task) =>
+      String(task.id) === String(updatedTask.id)
+        ? updatedTask
+        : task
+    );
+
+    renderTasks();
+  } catch (error) {
+    console.error("Update error:", error);
+    alert("Task update failed. Please try again.");
+    await loadTasks();
+  }
+}
+
+// Delete a task
+async function deleteTask(id) {
+  try {
+    const response = await fetch(`/api/tasks/${id}`, {
+      method: "DELETE"
+    });
+
+    if (!response.ok) {
+      throw new Error(`Delete failed: HTTP ${response.status}`);
+    }
+
+    tasks = tasks.filter(
+      (task) => String(task.id) !== String(id)
+    );
+
+    renderTasks();
+  } catch (error) {
+    console.error("Delete error:", error);
+    alert("Could not delete task. Please try again.");
+    await loadTasks();
+  }
+}
+
+// Add button and Enter key
 addTaskBtn.addEventListener("click", addTask);
 
-
-// Press Enter to add task
 taskInput.addEventListener("keydown", (event) => {
-
-    if (event.key === "Enter") {
-        addTask();
-    }
-
+  if (event.key === "Enter") {
+    addTask();
+  }
 });
 
-
-// All button
-allBtn.addEventListener("click", () => {
-
-    currentFilter = "all";
-
-    loadTasks();
-
+// Optional filter buttons, if present in your HTML
+document.querySelectorAll("[data-filter]").forEach((button) => {
+  button.addEventListener("click", () => {
+    currentFilter = button.dataset.filter;
+    renderTasks();
+  });
 });
 
-
-// Active button
-activeBtn.addEventListener("click", () => {
-
-    currentFilter = "active";
-
-    loadTasks();
-
-});
-
-
-// Completed button
-completedBtn.addEventListener("click", () => {
-
-    currentFilter = "completed";
-
-    loadTasks();
-
-});
-// Load tasks when page opens
+// Start the app
 loadTasks();
